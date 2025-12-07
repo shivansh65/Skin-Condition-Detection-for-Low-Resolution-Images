@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DermAI - Diagnostic Report</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body class="results-body">
+<div class="container">
+    
+    <header>
+        <h1>Diagnostic Report</h1>
+        <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">
+            Session ID: {{ request_id if request_id else 'SESSION-8492' }}
+        </p>
+    </header>
+
+    <!-- PREDICTION -->
+    <section class="result-card predicted-condition-{{ danger | lower }}">
+        <p style="opacity: 0.9; font-size: 0.9rem; margin-bottom: 5px;">Primary Prediction</p>
+        <h2 class="prediction-title">{{ pred_name }}</h2>
+        <div class="danger-indicator">
+            <span class="danger-pill" aria-label="Severity: {{ danger }}">
+                <i class="fa-solid fa-circle-exclamation"></i> Severity: {{ danger }}
+            </span>
+        </div>
+    </section>
+
+    <!-- FEEDBACK -->
+    <section class="feedback-section">
+        <h3>Did DermAI help?</h3>
+        <p>Your feedback improves our model's accuracy.</p>
+
+        <div class="feedback-buttons">
+            <button class="feedback-button feedback-positive" onclick="submitFeedback('accurate')">
+                <i class="fa-solid fa-thumbs-up"></i> Accurate
+            </button>
+            <button class="feedback-button feedback-negative" onclick="toggleCommentForm()">
+                <i class="fa-solid fa-thumbs-down"></i> Inaccurate
+            </button>
+        </div>
+
+        <form id="comment-form" style="display: none; margin-top: 15px;">
+            <textarea placeholder="Briefly explain why" rows="2" style="width: 100%; padding: 10px;"></textarea>
+            <button type="button" class="submit-comment-btn" onclick="submitFeedback('inaccurate', true)">Submit Comment</button>
+        </form>
+
+        <p id="feedback-message" style="margin-top: 10px; display: none;"></p>
+    </section>
+
+    <!-- IMAGES -->
+    <section class="image-section">
+        <div class="image-container">
+            <h3><i class="fa-regular fa-image"></i> Clinical Input</h3>
+            <img src="data:image/png;base64,{{ original }}" class="result-image">
+        </div>
+
+        <div class="image-container heatmap-container">
+            <h3><i class="fa-solid fa-layer-group"></i> Grad-CAM Analysis</h3>
+            <img src="data:image/png;base64,{{ heatmap }}" class="result-image heatmap-image">
+            <p class="heatmap-note">Red/bright areas indicate model focus.</p>
+        </div>
+    </section>
+
+    <!-- DIFFERENTIAL -->
+    <section class="ddx-section">
+        <h3><i class="fa-solid fa-vial"></i> Differential Diagnosis</h3>
+        <p class="ddx-text">
+            {{ ddx_summary | safe }}
+        </p>
+    </section>
+
+    <!-- CONFIDENCE -->
+    <section class="confidence-section">
+        <h3><i class="fa-solid fa-chart-simple"></i> Model Confidence</h3>
+
+        <div class="confidence-list">
+            {% for name, prob in confidences.items() %}
+            <div class="confidence-item">
+                <span class="condition-name">{{ name }}</span>
+                <div class="bar-container">
+                    <div class="bar-fill" style="width: {{ prob }};"></div>
+                </div>
+                <span class="probability">{{ prob }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- ADVICE -->
+    <section class="advice-section">
+        <h3>DermAI Advice</h3>
+        <p>{{ advice }}</p>
+    </section>
+
+    <!-- SPECIALIST FINDER -->
+    <section class="map-finder-section">
+        <h3><i class="fa-solid fa-map-location-dot"></i> Find a Specialist</h3>
+        <p>Enter your city or zip code to find nearby dermatologists.</p>
+
+        <div class="location-input-group">
+            <input type="text" id="zip-code" placeholder="Enter City or Zip Code..." class="location-input">
+            <button class="location-btn" onclick="searchSpecialists()">
+                Search <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+        </div>
+
+        <!-- LIST OF DOCTORS -->
+        <div id="doctor-list" style="margin-bottom: 20px;"></div>
+
+        <!-- MAP -->
+        <div class="map-widget">
+            <iframe id="map-frame"
+                src="https://maps.google.com/maps?q=dermatologist&t=&z=13&ie=UTF8&iwloc=&output=embed"
+                frameborder="0" allowfullscreen></iframe>
+        </div>
+    </section>
+
+    <div class="footer-actions">
+        <p class="disclaimer">⚠️ This output is NOT medical advice.</p>
+        <a href="/" class="back-btn"><i class="fa-solid fa-arrow-left"></i> Analyze Another Case</a>
+    </div>
+
+</div>
+
+<script>
+function toggleCommentForm() {
+    const form = document.getElementById('comment-form');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+function submitFeedback(rating, commented = false) {
+    const msg = document.getElementById('feedback-message');
+    const buttons = document.querySelector('.feedback-buttons');
+
+    msg.style.display = 'block';
+
+    if (rating === "accurate") {
+        msg.innerHTML = "<i class='fa-solid fa-heart'></i> Thank you!";
+        msg.style.color = "#28a745";
+    } else {
+        msg.innerHTML = "<i class='fa-solid fa-check'></i> Feedback recorded.";
+        msg.style.color = "#007bff";
+    }
+
+    buttons.style.display = "none";
+}
+
+/* SPECIALIST SEARCH */
+async function searchSpecialists() {
+    const query = document.getElementById("zip-code").value.trim();
+    if (!query) return;
+
+    const mapFrame = document.getElementById("map-frame");
+    const doctorList = document.getElementById("doctor-list");
+
+    mapFrame.src =
+      `https://maps.google.com/maps?q=dermatologist near ${encodeURIComponent(query)}&z=13&output=embed&cb=${Date.now()}`;
+
+    const res = await fetch(`/get_dermatologists?query=${encodeURIComponent(query)}`);
+    const data = await res.json();
+
+    doctorList.innerHTML = "";
+
+    if (!data.results || data.results.length === 0) {
+        return; // Clean: no clutter, no "not found" spam
+    }
+
+    data.results.forEach(doc => {
+        doctorList.innerHTML += `
+            <div style="padding: 10px; border-bottom: 1px solid #ddd;">
+                <strong>${doc.name}</strong><br>
+                ⭐ ${doc.rating || 'N/A'} | ${doc.address}
+            </div>`;
+    });
+}
+</script>
+
+</body>
+</html>
