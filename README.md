@@ -2,6 +2,24 @@ Skin Condition Detection for Low-Resolution ImagesThis project implements a Conv
 Flask to classify seven common skin conditions from low-resolution images (28x28 pixels). 
 It includes a training script, a web application for inference, and utilizes Grad-CAM for visual model interpretability. 
 
+Dataset Information: 
+1. HAM10000: This project is trained on the HAM10000 ("Human Against Machine" 10000) dataset, a large collection of multi-source dermatoscopic images of common pigmented skin lesions.
+
+Data Source: The raw images and associated metadata are available from the official academic sources (e.g., Harvard Dataverse).
+
+Data Format Used: The train.py script specifically utilizes the aggregated CSV format of the 28x28 pixel RGB data, titled hmnist_28_28_RGB.csv.
+
+Download Required: Due to its size and external source, the dataset file hmnist_28_28_RGB.csv is not included in this repository. To run the train.py script, you must manually download this file and place it in a folder named HAM10000/ in the project's root directory.
+
+2. Pre-trained Model (skin_model.pth)
+To simplify deployment and allow users to immediately run the web application (app.py), the trained model weights are included in the repository.
+
+File: The file is named skin_model.pth.
+
+Function: This file contains the state dictionary of the SkinCNN model trained using the settings in train.py (10 epochs on the HAM10000 dataset).
+
+Ready for Inference: The app.py script directly loads this file: model.load_state_dict(torch.load("skin_model.pth", ...)). You do not need to run train.py to use the Flask web application, unless you wish to retrain the model or test changes.
+
 Features:
 1. 7-Class Classification: Detects and classifies seven different skin lesion categories from the HAM10000 dataset.
 2. Low-Resolution Optimization: Specifically trained for 28x28 pixel images, common in medical datasets.
